@@ -1,0 +1,6 @@
+*.log
+out/
+build/
+.gradle
+.idea
+logs
