@@ -13,14 +13,13 @@ public class Main {
 		String host = "192.168.133.177";
 		String user = "root";
 		String password = "123qwe!@#";
-		String psCommand = "ps -ef|grep apache-tomcat-member-center-api";
+//		String psCommand = "ps -ef|grep apache-tomcat-member-center-api";
 
-//		String locateTomcat = "cd /opt/tomcats/apache-tomcat-member-center-api/bin";
-//		String startCatalina = "./catalina.sh start";
+		String startCatalina = "/opt/tomcats/apache-tomcat-member-center-api/bin/catalina.sh start";
 
 		ShellUtil shellUtil = new ShellUtil(host, port, user, password);
 		List<String> commands = new ArrayList<>();
-		commands.add(psCommand);
+		commands.add(startCatalina);
 		shellUtil.executeCommands(commands);
 		System.out.println(shellUtil.getResponse());
 		shellUtil.disconnect();
