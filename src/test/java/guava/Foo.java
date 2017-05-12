@@ -1,8 +1,5 @@
 package guava;
 
-/**
- * Created by yangnx on 2017/4/18.
- */
 public class Foo {
 	private String name;
 	private int age;
