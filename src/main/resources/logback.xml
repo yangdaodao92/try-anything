@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <configuration debug="false" scan="true" scanPeriod="30 seconds">
-	<property name="LOG_DIR" value="cpci-fetch"/>
 
-	<logger name="main" level="INFO" additivity="false">
+	<include resource="base-logback.xml"/>
+
+	<logger name="com" level="INFO" additivity="false">
+		<!--<appender-ref ref="STDOUT" />-->
 	</logger>
 
-	<root level="Error"/>
+	<root level="off"/>
 </configuration>

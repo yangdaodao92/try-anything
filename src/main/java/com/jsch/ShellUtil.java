@@ -6,7 +6,6 @@ import com.jcraft.jsch.Session;
 import com.jcraft.jsch.UserInfo;
 import expect4j.Closure;
 import expect4j.Expect4j;
-import expect4j.ExpectState;
 import expect4j.matches.EofMatch;
 import expect4j.matches.Match;
 import expect4j.matches.RegExpMatch;
@@ -15,12 +14,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
-import java.util.Hashtable;
+import java.util.Arrays;
 import java.util.List;
 
 public class ShellUtil {
 
-	private static Logger log = LoggerFactory.getLogger(Shell.class);
+	private static Logger log = LoggerFactory.getLogger(ShellUtil.class);
 
 	private Session session;
 	private ChannelShell channel;
@@ -39,6 +38,8 @@ public class ShellUtil {
 	private static String[] linuxPromptRegEx = new String[]{"~]#", "~#", "#", ":~#", "/$", ">"};
 	private static String[] errorMsg = new String[]{"could not acquire the config lock "};
 
+	private List<Match> lstPattern = null;
+
 	private String host;
 	private int port;
 	private String user;
@@ -50,6 +51,7 @@ public class ShellUtil {
 		this.user = user;
 		this.password = password;
 		expect = getExpect();
+		lstPattern = initLstPattern();
 	}
 
 	/**
@@ -82,9 +84,8 @@ public class ShellUtil {
 			JSch jsch = new JSch();
 			session = jsch.getSession(user, host, port);
 			session.setPassword(password);
-			Hashtable<String, String> config = new Hashtable<String, String>();
-			config.put("StrictHostKeyChecking", "no");
-			session.setConfig(config);
+			session.setConfig("StrictHostKeyChecking", "no");
+
 			localUserInfo ui = new localUserInfo();
 			session.setUserInfo(ui);
 			session.connect();
@@ -100,65 +101,44 @@ public class ShellUtil {
 		return null;
 	}
 
+	public boolean executeCommands(String ...commands) {
+		List<String> listCommands = new ArrayList<>();
+		listCommands.addAll(Arrays.asList(commands));
+		return executeCommands(listCommands, false);
+	}
+
+	public boolean executeCommandsWithAppendResponse(String ...commands) {
+		List<String> listCommands = new ArrayList<>();
+		listCommands.addAll(Arrays.asList(commands));
+		return executeCommands(listCommands, true);
+	}
+
+	public boolean executeCommands(List<String> commands) {
+		return executeCommands(commands, false);
+	}
+
 	/**
 	 * 执行配置命令
 	 *
 	 * @param commands 要执行的命令，为字符数组
 	 * @return 执行是否成功
 	 */
-	public boolean executeCommands(List<String> commands) {
-		//如果expect返回为0，说明登入没有成功
+	public boolean executeCommands(List<String> commands, boolean appendResponse) {
 		if (expect == null) {
 			return false;
 		}
-
+		if (!appendResponse) {
+			buffer = new StringBuffer();
+		}
 		log.debug("----------Running commands are listed as follows:----------");
 		for (String command : commands) {
 			log.debug(command);
 		}
 		log.debug("----------End----------");
-
-		Closure closure = expectState -> {
-			buffer.append(expectState.getBuffer());
-			// buffer is string
-			// buffer for appending
-			// output of executed
-			// command
-			expectState.exp_continue();
-		};
-		List<Match> lstPattern = new ArrayList<>();
-		String[] regEx = linuxPromptRegEx;
-		if (regEx != null && regEx.length > 0) {
-			synchronized (regEx) {
-				for (String regexElement : regEx) {
-					// list of regx like, :>, />
-					// etc. it is possible
-					// command prompts of your
-					// remote machine
-					try {
-						RegExpMatch mat = new RegExpMatch(regexElement, closure);
-						lstPattern.add(mat);
-					} catch (Exception e) {
-						return false;
-					}
-				}
-				lstPattern.add(new EofMatch(new Closure() {
-					// should cause
-					// entire page to be
-					// collected
-					public void run(ExpectState state) {
-					}
-				}));
-				lstPattern.add(new TimeoutMatch(defaultTimeOut, new Closure() {
-					public void run(ExpectState state) {
-					}
-				}));
-			}
-		}
 		try {
-			boolean isSuccess = true;
+			boolean isSuccess;
 			for (String strCmd : commands) {
-				isSuccess = isSuccess(lstPattern, strCmd);
+				isSuccess(lstPattern, strCmd);
 			}
 			//防止最后一个命令执行不了
 			isSuccess = !checkResult(expect.expect(lstPattern));
@@ -170,11 +150,37 @@ public class ShellUtil {
 					return false;
 				}
 			}
+			System.out.print(getResponse());
 			return isSuccess;
 		} catch (Exception ex) {
 			ex.printStackTrace();
 			return false;
 		}
+	}
+
+	private List<Match> initLstPattern() {
+		List<Match> lstPattern = new ArrayList<>();
+		Closure closure = expectState -> {
+			buffer.append(expectState.getBuffer());
+			// buffer for appending output of executed command
+			expectState.exp_continue();
+		};
+		String[] regEx = linuxPromptRegEx;
+		if (regEx != null && regEx.length > 0) {
+			for (String regexElement : regEx) {
+				// list of regx like, :>, /> etc. it is possible command prompts of your remote machine
+				try {
+					RegExpMatch mat = new RegExpMatch(regexElement, closure);
+					lstPattern.add(mat);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+			// should cause entire page to be collected
+			lstPattern.add(new EofMatch(state -> {}));
+			lstPattern.add(new TimeoutMatch(defaultTimeOut, state -> {}));
+		}
+		return lstPattern;
 	}
 
 	//检查执行是否成功
@@ -200,10 +206,10 @@ public class ShellUtil {
 	//登入SSH时的控制信息
 	//设置不提示输入密码、不显示登入信息等
 	public static class localUserInfo implements UserInfo {
-		String passwd;
+		String password;
 
 		public String getPassword() {
-			return passwd;
+			return password;
 		}
 
 		public boolean promptYesNo(String str) {

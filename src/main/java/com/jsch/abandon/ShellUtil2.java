@@ -1,4 +1,4 @@
-package com.jsch;
+package com.jsch.abandon;
 
 import com.jcraft.jsch.ChannelShell;
 import com.jcraft.jsch.JSch;

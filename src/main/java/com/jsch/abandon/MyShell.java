@@ -1,9 +1,7 @@
-package com.jsch;
+package com.jsch.abandon;
 
 import com.jcraft.jsch.*;
-
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import com.jsch.abandon.JSchUtil;
 
 public class MyShell {
 
@@ -18,27 +16,27 @@ public class MyShell {
 		ChannelExec channelExec = JSchUtil.openChannel(session);
 
 		String resTomcat = JSchUtil.exeCommand(channelExec, psCommand);
-		System.out.println(killTomcat(resTomcat, channelExec));
+//		System.out.println(killTomcat(resTomcat, channelExec));
 //		System.out.println(startTomcat(channelExec));
 
 		channelExec.disconnect();
 		session.disconnect();
 	}
 
-	public static String killTomcat(String response, ChannelExec channelExec) {
-		System.out.println(response);
-		String ps[] = response.split("\n");
-		if (ps.length == 3) {
-			Pattern pattern = Pattern.compile("root\\s*(\\d+)\\s.*");
-			Matcher matcher = pattern.matcher(ps[0]);
-			if (matcher.find()) {
-				String tomcatPID = matcher.group(1);
-				System.out.println(tomcatPID);
-				return JSchUtil.exeCommand(channelExec, "kill -9 " + tomcatPID);
-			}
-		}
-		return "fail";
-	}
+//	public static String killTomcat(String response, ChannelExec channelExec) {
+//		System.out.println(response);
+//		String ps[] = response.split("\n");
+//		if (ps.length == 3) {
+//			Pattern pattern = Pattern.compile("root\\s*(\\d+)\\s.*");
+//			Matcher matcher = pattern.matcher(ps[0]);
+//			if (matcher.find()) {
+//				String tomcatPID = matcher.group(1);
+//				System.out.println(tomcatPID);
+//				return JSchUtil.exeCommand(channelExec, "kill -9 " + tomcatPID);
+//			}
+//		}
+//		return "fail";
+//	}
 
 	public static String startTomcat(ChannelExec channelExec) {
 		JSchUtil.exeCommand(channelExec, "cd /opt/tomcats/apache-tomcat-member-center-api/bin");
