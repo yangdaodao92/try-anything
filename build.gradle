@@ -50,6 +50,7 @@ dependencies {
 
     compile group: 'net.sourceforge.htmlunit', name: 'htmlunit', version: '2.23'
     compile group: 'org.jsoup', name: 'jsoup', version: '1.8.3'
+    compile 'com.hankcs:hanlp:portable-1.6.1'
 
 //    compile fileTree('libs')
     compile 'huawei:obs:2.1.18'
@@ -67,7 +68,7 @@ dependencies {
     compile 'net.java.dev.jna:jna:4.1.0'
 
     // glodon
-    compile 'glodon.member.center:member-center-util:1.0.0-SNAPSHOT'
+    compile 'glodon.member.center:member-center-util:1.0.1-SNAPSHOT'
 
     compile group: 'commons-io', name: 'commons-io', version: '2.5'
     compile 'com.google.guava:guava:21.0'

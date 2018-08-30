@@ -1,5 +1,7 @@
 package com.huaweiOBS;
 
+import com.google.common.collect.Multimap;
+import com.google.common.collect.MultimapBuilder;
 import com.obs.services.ObsClient;
 import com.obs.services.exception.ObsException;
 import com.obs.services.model.CompleteMultipartUploadRequest;
@@ -19,9 +21,12 @@ import com.obs.services.model.S3Object;
 import com.obs.services.model.UploadPartRequest;
 import com.obs.services.model.UploadPartResult;
 import com.sun.media.sound.SoftTuning;
+import glodon.gcj.member.center.utils.pojo.CstmSyncBehaviourDayLog;
+import glodon.gcj.member.center.utils.util.OperateLogUtils;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.commons.lang3.time.DateFormatUtils;
@@ -34,6 +39,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -52,6 +58,7 @@ public class ObsUtil {
 
 	private static String bucketName = "dws-behaviour-data-operation";
 	private static Long partSize = 5 * 1024 * 1024L;
+	private static String LINE_SEPARATOR = System.getProperty("line.separator");
 
 	public static void main(String[] args) throws IOException {
 //		upload(new File("D:\\IdeaSource\\Others\\springbatchtest\\src\\main\\resources\\jdbc\\user.txt"), "user.txt");
@@ -74,35 +81,78 @@ public class ObsUtil {
 //
 //		System.out.println(StringUtils.join(list, "\n"));
 
+//		glodon.gcj.member.center.utils.util.ObsUtil.download("membercenter/dwsBehaviourData/2018/20180521/107-Kafka01.log", new File("E:\\test3\\hw-obs-daily107project\\membercenter\\dwsBehaviourData\\2018\\20180527\\107-Kafka02.log"));
+
+		analysisWarningData(null);
+
+//		for (CstmSyncBehaviourDayLog dayLog : OperateLogUtils.listDayLogs("13000152", 20180816, -14)) {
+//			OperateLogUtils.updateDayLog(dayLog.getCstmSyncBehaviourDayLogId(), (byte) -17);
+//		}
+	}
+
+	private static void analysisWarningData(Integer ymd) throws IOException {
+		String prefix = "membercenter/dwsBehaviourData-Error/";
+		if (ymd != null) {
+			String year = String.valueOf(ymd).substring(0, 4);
+			prefix += year + "/" + ymd;
+		}
 		// 从华为云下载
-		System.out.println(listAllKeys("membercenter/dwsBehaviourData-Error/").size());
-		listAllKeys("membercenter/dwsBehaviourData-Error/").stream().filter(key -> key.contains("Distinct")).forEach(key -> {
+		List<String> allKeys = listAllKeys(prefix);
+		System.out.println(allKeys.size());
+		// 下载解析异常的行
+		allKeys.stream().filter(key -> key.contains("Distinct")).forEach(key -> {
 			try {
-				load(key, new File("E:/test2/" + key.replace("membercenter/dwsBehaviourData-Error/", "")));
+				load(key, new File("E:/test2/WrongLine/" + key.replace("membercenter/dwsBehaviourData-Error/", "")));
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		});
+		// 下载执行异常的SQL
+		allKeys.stream().filter(key -> key.contains("WrongSql")).forEach(key -> {
+			try {
+				load(key, new File("E:/test2/WrongSql/" + key.replace("membercenter/dwsBehaviourData-Error/", "")));
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
 		});
 		// 删除存在的异常数据
-		deleteAllKeys(listAllKeys("membercenter/dwsBehaviourData-Error/"));
+		deleteAllKeys(allKeys);
 
 		// 将错误日志合并
-		Map<String, Map<String, String>> fncodeMap = new HashMap<>();
-		for (File file : FileUtils.listFiles(new File("E:\\test2"), new String[]{"log"}, true)) {
-			String fncode = file.getName().split("-")[1];
-			fncodeMap.computeIfAbsent(fncode, k -> new HashMap<>());
+		Map<String, Multimap<String, String>> fncodeMap = new HashMap<>();
+		Map<String, Multimap<String, String>> logDetailMap = new HashMap<>();
+		for (File file : FileUtils.listFiles(new File("E:/test2/WrongLine"), new String[]{"log"}, true)) {
+			// fileName 20180822-2057-01-WrongLineDistinct.log
+			String[] splits = file.getName().split("-");
+			String fileDate = splits[0];
+			String fncode = splits[1];
+			String machineNum = splits[2];
+
+			fncodeMap.computeIfAbsent(fncode, k -> MultimapBuilder.hashKeys().arrayListValues().build());
+			logDetailMap.computeIfAbsent(fncode, k -> MultimapBuilder.hashKeys().arrayListValues().build());
 
 			String ss = StringUtils.join(FileUtils.readLines(file, "utf-8"), System.getProperty("line.separator"));
-			for (String s : ss.split("----------------------------------------------------------------------------------------------------" + System.getProperty("line.separator"))) {
-				String aa[] = s.split(System.getProperty("line.separator"));
+			for (String s : ss.split("----------------------------------------------------------------------------------------------------" + LINE_SEPARATOR)) {
+				String aa[] = s.split(LINE_SEPARATOR);
+
 				if (aa.length > 1) {
-					fncodeMap.get(fncode).put(aa[1], s);
+					// java.lang.RuntimeException: 未找到fncode:75 中字段:替换材斑供应商 的规则
+					String markLine = aa[1];
+					fncodeMap.get(fncode).put(markLine, s);
+
+					// 放入请求地址
+					String url = "http://gcj-dws-hw.gldjc.com/parseLogAssist/alterWrongLogStatus?fileDate=" + fileDate + "&fncode=" + fncode + "&machineNum=" + machineNum;
+					logDetailMap.get(fncode).put(markLine, url);
 				}
 			}
 		}
 		for (String fncode : fncodeMap.keySet()) {
-			for (String s : fncodeMap.get(fncode).keySet()) {
-				FileUtils.write(new File("E:\\test2\\combine\\" + fncode + ".log"), System.getProperty("line.separator") + fncodeMap.get(fncode).get(s), "utf-8", true);
+			for (String markLine : fncodeMap.get(fncode).keySet()) {
+				Collection<String> markLineContent = fncodeMap.get(fncode).get(markLine);
+				int count = markLineContent.size();
+				String urlsStr = StringUtils.join(logDetailMap.get(fncode).get(markLine), LINE_SEPARATOR);
+				FileUtils.write(new File("E:\\test2\\combine\\" + fncode + ".log"),
+						LINE_SEPARATOR + urlsStr + LINE_SEPARATOR + count + LINE_SEPARATOR + markLineContent.iterator().next(), "utf-8", true);
 			}
 		}
 	}
