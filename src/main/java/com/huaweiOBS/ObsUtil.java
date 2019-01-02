@@ -61,10 +61,6 @@ public class ObsUtil {
 	private static String LINE_SEPARATOR = System.getProperty("line.separator");
 
 	public static void main(String[] args) throws IOException {
-//		upload(new File("D:\\IdeaSource\\Others\\springbatchtest\\src\\main\\resources\\jdbc\\user.txt"), "user.txt");
-//		System.out.println(new File("G:\\test-obs.zip").length());
-//		isExist();
-
 //		List<String> list = listAllKeys("membercenter/dwsBehaviourData/2018/20180122");
 //		list.sort(new Comparator<String>() {
 //			@Override
@@ -78,16 +74,7 @@ public class ObsUtil {
 //				return date != 0 ? date : (fncode != 0 ? fncode : machineNum);
 //			}
 //		});
-//
-//		System.out.println(StringUtils.join(list, "\n"));
-
-//		glodon.gcj.member.center.utils.util.ObsUtil.download("membercenter/dwsBehaviourData/2018/20180521/107-Kafka01.log", new File("E:\\test3\\hw-obs-daily107project\\membercenter\\dwsBehaviourData\\2018\\20180527\\107-Kafka02.log"));
-
 		analysisWarningData(null);
-
-//		for (CstmSyncBehaviourDayLog dayLog : OperateLogUtils.listDayLogs("13000152", 20180816, -14)) {
-//			OperateLogUtils.updateDayLog(dayLog.getCstmSyncBehaviourDayLogId(), (byte) -17);
-//		}
 	}
 
 	private static void analysisWarningData(Integer ymd) throws IOException {
@@ -122,11 +109,13 @@ public class ObsUtil {
 		Map<String, Multimap<String, String>> fncodeMap = new HashMap<>();
 		Map<String, Multimap<String, String>> logDetailMap = new HashMap<>();
 		for (File file : FileUtils.listFiles(new File("E:/test2/WrongLine"), new String[]{"log"}, true)) {
-			// fileName 20180822-2057-01-WrongLineDistinct.log
+			// 旧版 fileName 20180822-2057-01-WrongLineDistinct.log
+			// 新版 fileName 20180822-2057-1-1-WrongLineDistinct.log
 			String[] splits = file.getName().split("-");
 			String fileDate = splits[0];
 			String fncode = splits[1];
 			String machineNum = splits[2];
+			String executeNum = splits[3].replaceAll("[^0-9]", ""); // 兼容模式
 
 			fncodeMap.computeIfAbsent(fncode, k -> MultimapBuilder.hashKeys().arrayListValues().build());
 			logDetailMap.computeIfAbsent(fncode, k -> MultimapBuilder.hashKeys().arrayListValues().build());
@@ -141,7 +130,7 @@ public class ObsUtil {
 					fncodeMap.get(fncode).put(markLine, s);
 
 					// 放入请求地址
-					String url = "http://gcj-dws-hw.gldjc.com/parseLogAssist/alterWrongLogStatus?fileDate=" + fileDate + "&fncode=" + fncode + "&machineNum=" + machineNum;
+					String url = "http://gcj-dws-hw.gldjc.com/parseLogAssist/alterWrongLogStatus?fileDate=" + fileDate + "&fncode=" + fncode + "&machineNum=" + machineNum + "&executeNum=" + executeNum;
 					logDetailMap.get(fncode).put(markLine, url);
 				}
 			}
@@ -248,6 +237,9 @@ public class ObsUtil {
 					count++;
 					if (count % 20000 == 0) {
 						System.out.println();
+					}
+					if (count > 1000 && line.contains("-----------------")) {
+						break;
 					}
 				}
 				System.out.println();
